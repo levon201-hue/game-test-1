@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+  GeoGuess Atlas - bilingual learning quiz.
+  Serve over HTTP (the included server: powershell .claude/server.ps1).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GeoGuess Atlas</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "topojson-client": "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm",
+        "earcut": "https://cdn.jsdelivr.net/npm/earcut@2.2.4/+esm"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="globe-container"></div>
+
+  <div id="loading" class="overlay">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-text" data-i18n="loading_text">Loading world…</div>
+    </div>
+  </div>
+
+  <!-- ============ Main HUD ============ -->
+  <div id="hud" hidden>
+    <div class="hud-top-left">
+      <div class="lang-switch">
+        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="ru">RU</button>
+      </div>
+      <div class="score-chip">
+        <div class="chip-label" data-i18n="score_label">Score</div>
+        <div class="chip-value" id="score-value">0</div>
+      </div>
+    </div>
+
+    <div class="hud-top-center">
+      <div class="prompt-card">
+        <div class="prompt-label" id="prompt-label">—</div>
+        <div class="prompt-target" id="prompt-target">—</div>
+      </div>
+      <div class="choices" id="choices" hidden></div>
+    </div>
+
+    <div class="hud-top-right">
+      <div class="progress-chip">
+        <div class="chip-label" data-i18n="asked_label">Asked</div>
+        <div class="chip-value"><span id="progress-index">0</span> / <span id="progress-total">0</span></div>
+      </div>
+      <div class="audio-toggles">
+        <button class="icon-btn" id="btn-sfx" title="Sound on" aria-label="Toggle sound effects">🔊</button>
+        <button class="icon-btn" id="btn-music" title="Music on" aria-label="Toggle music">♪</button>
+      </div>
+      <button class="ghost-btn small" id="btn-skip" data-i18n="skip">Skip</button>
+      <button class="ghost-btn small" id="btn-end" data-i18n="end_round">End session</button>
+    </div>
+
+    <div class="hud-bottom" id="hud-bottom" data-i18n="hint_drag">drag to rotate · scroll to zoom</div>
+  </div>
+
+  <!-- ============ Country info card (after each answer) ============ -->
+  <div id="info-overlay" class="overlay info-overlay" hidden>
+    <div class="info-card">
+      <div class="info-feedback" id="info-feedback"></div>
+      <div class="info-head">
+        <img class="info-flag" id="info-flag" alt="" />
+        <div class="info-name">
+          <div class="info-country" id="info-country">—</div>
+          <div class="info-region" id="info-region">—</div>
+        </div>
+      </div>
+      <div class="info-facts">
+        <div class="fact">
+          <div class="fact-label" data-i18n="card_capital">Capital</div>
+          <div class="fact-value" id="info-capital">—</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label" data-i18n="card_population">Population</div>
+          <div class="fact-value" id="info-population">—</div>
+        </div>
+        <div class="fact">
+          <div class="fact-label" data-i18n="card_area">Area</div>
+          <div class="fact-value" id="info-area">—</div>
+        </div>
+        <div class="fact wide">
+          <div class="fact-label" data-i18n="card_languages">Languages</div>
+          <div class="fact-value" id="info-languages">—</div>
+        </div>
+      </div>
+      <div class="info-history">
+        <div class="fact-label" data-i18n="card_history">History</div>
+        <div class="history-text" id="info-history">—</div>
+      </div>
+      <div class="info-anthem" id="info-anthem" hidden>♪ Anthem playing</div>
+      <div class="info-actions">
+        <button class="primary" id="btn-continue" data-i18n="continue">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Start overlay ============ -->
+  <div id="start-overlay" class="overlay" hidden>
+    <div class="modal">
+      <div class="lang-switch top-right-lang">
+        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="ru">RU</button>
+      </div>
+      <h1 data-i18n="title">GeoGuess Atlas</h1>
+      <p class="tagline" data-i18n="tagline">Learn the world — one country at a time.</p>
+      <div class="rules">
+        <div data-i18n="rules1">· No timer · explore at your own pace</div>
+        <div data-i18n="rules2">· 3 question types · history & facts after each answer</div>
+      </div>
+      <div class="buttons">
+        <button id="start-play" class="primary" data-i18n="play">Start learning</button>
+      </div>
+      <div class="best" id="best-line"></div>
+    </div>
+  </div>
+
+  <!-- ============ End overlay ============ -->
+  <div id="end-overlay" class="overlay" hidden>
+    <div class="modal">
+      <h1 data-i18n="session_over">Session summary</h1>
+      <div class="final-score">
+        <div class="final-score-label" data-i18n="your_score">Your score</div>
+        <div class="final-score-value" id="final-score-value">0</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label" data-i18n="correct_label">Correct</div><div class="stat-value" id="stat-correct">0</div></div>
+        <div class="stat"><div class="stat-label" data-i18n="asked_label">Asked</div><div class="stat-value" id="stat-asked">0</div></div>
+        <div class="stat"><div class="stat-label" data-i18n="discovered">Discovered</div><div class="stat-value" id="stat-discovered">0</div></div>
+      </div>
+      <div class="buttons">
+        <button id="again-play" class="primary" data-i18n="new_session">New session</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
