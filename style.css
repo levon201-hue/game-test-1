@@ -104,6 +104,14 @@ html, body {
   right: 14px;
 }
 
+/* Language switch sitting above the title in the start/end modals.
+   Centered, no absolute positioning, so it never overlaps the H1. */
+.modal-lang-row {
+  display: flex;
+  justify-content: center;
+  margin: -8px 0 18px;
+}
+
 .score-chip, .progress-chip {
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);
