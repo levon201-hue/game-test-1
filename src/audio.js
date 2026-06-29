@@ -43,20 +43,31 @@ function tone({ freq = 440, type = "sine", duration = 0.15, gain = 0.3, attack =
   const c = ensureCtx();
   if (!c) return;
   const now = c.currentTime;
+
+  // Clamp the envelope so every scheduled time is strictly > the previous one
+  // and never goes negative. Safari throws RangeError when endTimes regress.
+  const a = Math.max(0.005, attack);
+  const dur = Math.max(a + 0.02, duration);
+  const r = Math.min(release, Math.max(0.005, dur - a - 0.005));
+
+  const tAttack     = now + a;
+  const tSustainEnd = now + dur - r;
+  const tEnd        = now + dur;
+
   const osc = c.createOscillator();
   const g = c.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, now);
-  if (freqEnd != null) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), now + duration);
+  if (freqEnd != null) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), tEnd);
   osc.detune.value = detune;
   g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(gain, now + attack);
-  g.gain.linearRampToValueAtTime(gain * 0.7, now + duration - release);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  g.gain.linearRampToValueAtTime(gain, tAttack);
+  g.gain.linearRampToValueAtTime(gain * 0.7, tSustainEnd);
+  g.gain.exponentialRampToValueAtTime(0.0001, tEnd);
   osc.connect(g);
   g.connect(masterGain);
   osc.start(now);
-  osc.stop(now + duration + 0.02);
+  osc.stop(tEnd + 0.02);
 }
 
 // A short bright pop for button clicks
