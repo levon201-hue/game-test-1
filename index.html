@@ -12,7 +12,49 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="description" content="A bilingual 3D-globe geography quiz with country histories, flags, and anthems." />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Show any boot error on screen instead of leaving a blank page.
+       Mobile browsers don't expose the JS console, so silent failure looks
+       identical to "not opening" — this surfaces it. -->
+  <script>
+    (function () {
+      function showBootError(label, info) {
+        var box = document.getElementById('boot-error');
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'boot-error';
+          box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;'
+            + 'background:#1a0808;color:#fed7d7;border:1px solid #f87171;border-radius:10px;'
+            + 'padding:10px 12px;font:13px/1.4 system-ui,sans-serif;max-height:50vh;overflow:auto';
+          document.body && document.body.appendChild(box);
+        }
+        var line = document.createElement('div');
+        line.style.marginTop = '4px';
+        line.textContent = label + ': ' + info;
+        box.appendChild(line);
+      }
+      window.addEventListener('error', function (e) {
+        var src = (e.filename || '').split('/').slice(-1)[0] || 'script';
+        showBootError('Error in ' + src, (e.message || e.error || 'unknown') + (e.lineno ? ' (line ' + e.lineno + ')' : ''));
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        showBootError('Promise rejected', (e.reason && (e.reason.message || e.reason)) + '');
+      });
+      // If the page is still on the loading overlay after 12s, offer a retry.
+      setTimeout(function () {
+        var l = document.getElementById('loading');
+        if (l && !l.hidden) {
+          var hint = document.createElement('div');
+          hint.style.cssText = 'margin-top:14px;font-size:12px;color:#cbd5e0;text-align:center';
+          hint.innerHTML = 'Taking longer than expected. <a href="?r=' + Date.now() + '" style="color:#f2c66e;text-decoration:underline">Tap here to retry</a>';
+          l.querySelector('.loading-card').appendChild(hint);
+        }
+      }, 12000);
+    })();
+  </script>
   <!-- es-module-shims polyfills <script type="importmap"> on older Safari (< 16.4)
        and older Chrome/Edge. Must load BEFORE the module script so the shim
        can hook the module loader on browsers without native support. -->
