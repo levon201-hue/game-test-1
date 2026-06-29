@@ -27,18 +27,10 @@ export async function createGlobe(container) {
   renderer.setClearColor(0x000000, 0);
   container.appendChild(renderer.domElement);
 
-  // Lighting tuned so the textured Earth reads well from any angle
-  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-  const dir = new THREE.DirectionalLight(0xfff3d6, 0.7);
-  dir.position.set(2.5, 1.5, 2.5);
-  scene.add(dir);
-
-  // Earth sphere with realistic diffuse map; fallback to ocean-blue if texture fails.
-  const earthMat = new THREE.MeshStandardMaterial({
-    color: 0x0d2a3a,
-    roughness: 0.85,
-    metalness: 0.0,
-  });
+  // Earth sphere uses MeshBasicMaterial so the diffuse texture renders at full
+  // brightness on every angle — no half-shadowed hemisphere. Atmosphere glow
+  // (added below) supplies the 3D feel.
+  const earthMat = new THREE.MeshBasicMaterial({ color: 0x1a3548 });
   const earthSphere = new THREE.Mesh(
     new THREE.SphereGeometry(OCEAN_RADIUS, 96, 96),
     earthMat,
