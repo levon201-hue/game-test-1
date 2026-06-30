@@ -52,6 +52,7 @@ html, body {
 }
 #hud .lang-btn,
 #hud .ghost-btn,
+#hud .icon-btn,
 #hud .choices button,
 #hud .score-chip,
 #hud .progress-chip { pointer-events: auto; }

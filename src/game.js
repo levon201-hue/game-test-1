@@ -1,5 +1,9 @@
 import { mulberry32 } from "./rng.js";
-import { QUESTION_TYPES, buildCandidatePool, makeQuestion } from "./quiz.js";
+import { QUESTION_TYPES, buildCandidatePool, makeQuestion, makeFeatureQuestion } from "./quiz.js";
+
+// Probability that any given prompt is a feature (ocean/river/lake/mountain/
+// desert) question instead of a country question.
+const FEATURE_QUESTION_PROBABILITY = 0.25;
 
 // Endless mode: the queue auto-refills in chunks so the game never ends on its
 // own. Players stop when they want via the Settings → Back-to-menu / End button.
@@ -58,13 +62,18 @@ export class Game {
   _nextQuestion() {
     // Endless: refill when we're about to run out
     if (this.queueIndex >= this.queue.length) this._refillQueue();
-    const targetIso = this.queue[this.queueIndex];
-    this.currentQ = makeQuestion(targetIso, this._rand, this._distractorPool);
-    this.queueIndex++;
+    const r = this._rand();
+    if (r < FEATURE_QUESTION_PROBABILITY) {
+      this.currentQ = makeFeatureQuestion(this._rand);
+    } else {
+      const targetIso = this.queue[this.queueIndex];
+      this.currentQ = makeQuestion(targetIso, this._rand, this._distractorPool);
+      this.queueIndex++;
+    }
     this.awaitingContinue = false;
     this._emit("question", {
       question: this.currentQ,
-      index: this.queueIndex,   // count of questions answered or shown so far
+      index: this.correctCount + this.wrongCount + this.skipCount + 1,
     });
   }
 
@@ -79,7 +88,8 @@ export class Game {
   // Called when the player picks a multiple-choice answer (index into choices).
   guessByChoice(choiceIndex) {
     if (!this.running || this.awaitingContinue || !this.currentQ) return null;
-    if (this.currentQ.type !== QUESTION_TYPES.CAPITAL_OF) return null;
+    const t = this.currentQ.type;
+    if (t !== QUESTION_TYPES.CAPITAL_OF && t !== QUESTION_TYPES.FEATURE_MC) return null;
     const correct = choiceIndex === this.currentQ.correctChoiceIndex;
     return this._resolve(correct, null, choiceIndex);
   }
@@ -91,6 +101,7 @@ export class Game {
     const payload = {
       result: "skipped",
       targetIso: this.currentQ.targetIso,
+      featureId: this.currentQ.featureId ?? null,
       question: this.currentQ,
     };
     this._emit("resolved", payload);
@@ -102,7 +113,7 @@ export class Game {
     if (correct) {
       this.correctCount += 1;
       this.score += scoreFor(this.currentQ.type);
-      this.discovered.add(target);
+      if (target) this.discovered.add(target);
     } else {
       this.wrongCount += 1;
     }
@@ -110,6 +121,7 @@ export class Game {
     const payload = {
       result: correct ? "correct" : "wrong",
       targetIso: target,
+      featureId: this.currentQ.featureId ?? null,
       guessIso,
       choiceIndex,
       question: this.currentQ,
@@ -157,6 +169,7 @@ function scoreFor(type) {
   if (type === QUESTION_TYPES.LOCATE)     return 10;
   if (type === QUESTION_TYPES.COUNTRY_OF) return 15;
   if (type === QUESTION_TYPES.CAPITAL_OF) return 8;
+  if (type === QUESTION_TYPES.FEATURE_MC) return 12;
   return 5;
 }
 

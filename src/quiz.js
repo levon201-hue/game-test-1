@@ -1,10 +1,12 @@
 import { COUNTRIES, tierBuckets } from "./countries.js";
-import { capitalName, countryName, getLocale } from "./i18n.js";
+import { capitalName, countryName, getLocale, t } from "./i18n.js";
+import { FEATURES, idsByKind } from "./features.js";
 
 export const QUESTION_TYPES = {
   LOCATE:        "locate",        // "Where is X?"  → click on globe
   CAPITAL_OF:    "capital_of",    // "Capital of X?" → multiple choice of capitals
   COUNTRY_OF:    "country_of",    // "Which country has capital X?" → click on globe
+  FEATURE_MC:    "feature_mc",    // "Which is the longest river?" → multiple choice of feature names
 };
 
 // Build a flat candidate pool with a soft difficulty curve:
@@ -104,6 +106,102 @@ export function promptPrefix(type) {
   if (type === QUESTION_TYPES.COUNTRY_OF) return "q_country_of";
   return "";
 }
+
+// ===================== Feature questions =====================
+//
+// Six superlative "Which is the …?" prompts cover oceans, rivers, lakes,
+// mountains and deserts. Returns the same shape as makeQuestion() for
+// CAPITAL_OF questions: 4 textual choices + a correct index, plus a
+// resolvedFeatureId so the info card can show the matching feature.
+
+const FEATURE_SUPERLATIVES = [
+  {
+    id: "longest_river",     promptKey: "q_longest_river",
+    kind: "river",           pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].length_km),
+    distractor: (ids) => ids.filter((id) => true),
+  },
+  {
+    id: "largest_ocean",     promptKey: "q_largest_ocean",
+    kind: "ocean",           pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].area_km2),
+    distractor: (ids) => ids,
+  },
+  {
+    id: "deepest_ocean",     promptKey: "q_deepest_ocean",
+    kind: "ocean",           pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].avg_depth_m),
+    distractor: (ids) => ids,
+  },
+  {
+    id: "deepest_lake",      promptKey: "q_deepest_lake",
+    kind: "lake",            pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].max_depth_m),
+    distractor: (ids) => ids,
+  },
+  {
+    id: "largest_lake",      promptKey: "q_largest_lake",
+    kind: "lake",            pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].area_km2),
+    distractor: (ids) => ids,
+  },
+  {
+    id: "highest_mountain",  promptKey: "q_highest_mountain",
+    kind: "mountain",        pickWinner: (rand, ids) => maxBy(ids, (id) => FEATURES[id].height_m),
+    distractor: (ids) => ids,
+  },
+  {
+    id: "highest_in_europe", promptKey: "q_highest_in_europe",
+    kind: "mountain",        pickWinner: () => "mt_elbrus",
+    distractor: (ids) => ids.filter((id) => id !== "mt_elbrus"),
+  },
+  {
+    id: "highest_in_africa", promptKey: "q_highest_in_africa",
+    kind: "mountain",        pickWinner: () => "mt_kilimanjaro",
+    distractor: (ids) => ids.filter((id) => id !== "mt_kilimanjaro"),
+  },
+  {
+    id: "largest_hot_desert", promptKey: "q_largest_hot_desert",
+    kind: "desert",          pickWinner: () => "desert_sahara",
+    distractor: (ids) => ids.filter((id) => id !== "desert_antarctic"), // exclude polar
+  },
+];
+
+function maxBy(ids, scoreFn) {
+  let best = ids[0]; let bestScore = -Infinity;
+  for (const id of ids) {
+    const s = scoreFn(id);
+    if (s > bestScore) { bestScore = s; best = id; }
+  }
+  return best;
+}
+
+function pickFeatureName(id, loc) {
+  const f = FEATURES[id];
+  return loc === "ru" ? f.name_ru : f.name_en;
+}
+
+export function makeFeatureQuestion(rand) {
+  const loc = getLocale();
+  const idx = Math.floor(rand() * FEATURE_SUPERLATIVES.length);
+  const spec = FEATURE_SUPERLATIVES[idx];
+  const allOfKind = idsByKind(spec.kind);
+  const winner = spec.pickWinner(rand, allOfKind);
+  const pool = spec.distractor(allOfKind).filter((id) => id !== winner);
+  shuffleInPlace(pool, rand);
+  const distractors = pool.slice(0, 3);
+  const choiceIds = [winner, ...distractors];
+  shuffleInPlace(choiceIds, rand);
+  const correctChoiceIndex = choiceIds.indexOf(winner);
+
+  return {
+    kind: "feature",                       // distinguishes from country questions
+    type: QUESTION_TYPES.FEATURE_MC,
+    targetIso: null,                       // not a country
+    featureId: winner,
+    promptKey: spec.promptKey,
+    promptText: "",                        // unused; UI uses promptKey
+    choiceIds,                              // ordered list of feature ids
+    choices: choiceIds.map((id) => pickFeatureName(id, loc)),
+    correctChoiceIndex,
+  };
+}
+
 
 function pickDistractorCapitals(targetIso, rand, distractorPool, n) {
   const loc = getLocale();

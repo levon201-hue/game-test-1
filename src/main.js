@@ -21,6 +21,7 @@ import {
   formatNumber,
 } from "./i18n.js";
 import { QUESTION_TYPES, promptPrefix } from "./quiz.js";
+import { FEATURES, kindEmoji } from "./features.js";
 import {
   playClick, playCorrect, playWrong, playFlagPlant, playReveal,
   setSfxEnabled, isSfxEnabled,
@@ -254,51 +255,55 @@ function wireGameEvents() {
 }
 
 function renderQuestion(question) {
+  if (question.type === QUESTION_TYPES.FEATURE_MC) {
+    // Feature questions (oceans / rivers / lakes / mountains / deserts)
+    // are pure multiple-choice; the prompt text comes from the i18n key.
+    els.promptLabel.textContent = t("language") === t("language") ? "" : ""; // intentionally blank label
+    els.promptLabel.textContent = "";
+    els.promptTarget.textContent = t(question.promptKey);
+    renderChoices(question);
+    return;
+  }
+
   els.promptLabel.textContent = t(promptPrefix(question.type));
   els.promptTarget.textContent = question.type === QUESTION_TYPES.COUNTRY_OF
     ? capitalName(question.targetIso)
     : countryName(question.targetIso);
 
   if (question.type === QUESTION_TYPES.CAPITAL_OF) {
-    els.choices.hidden = false;
-    els.choices.innerHTML = "";
-    question.choices.forEach((cap, idx) => {
-      const btn = document.createElement("button");
-      btn.textContent = cap;
-      btn.dataset.idx = String(idx);
-      btn.addEventListener("click", () => {
-        playClick();
-        game.guessByChoice(idx);
-      });
-      els.choices.appendChild(btn);
-    });
+    renderChoices(question);
   } else {
     els.choices.hidden = true;
     els.choices.innerHTML = "";
   }
 }
 
+function renderChoices(question) {
+  els.choices.hidden = false;
+  els.choices.innerHTML = "";
+  question.choices.forEach((label, idx) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.dataset.idx = String(idx);
+    btn.addEventListener("click", () => {
+      playClick();
+      game.guessByChoice(idx);
+    });
+    els.choices.appendChild(btn);
+  });
+}
+
 function onResolved(payload) {
-  const { result, targetIso, guessIso, question, score } = payload;
+  const { result, targetIso, featureId, guessIso, question, score } = payload;
   if (score != null) els.scoreValue.textContent = formatNumber(score);
 
-  if (result === "correct") {
-    playCorrect();
-    globe.flashCountry(targetIso, COLORS.correct, 700);
-    allDiscovered.add(targetIso);
-    persistDiscovered(allDiscovered);
-    setTimeout(() => playFlagPlant(), 200);
-    globe.plantFlag(targetIso);
-  } else if (result === "wrong") {
-    playWrong();
-    if (guessIso && guessIso !== targetIso) globe.flashCountry(guessIso, COLORS.wrong, 700);
-    globe.flashCountry(targetIso, COLORS.reveal, 1000);
-  } else {
-    playReveal();
-    globe.flashCountry(targetIso, COLORS.reveal, 1000);
-  }
+  // Audio feedback (same for both country and feature questions)
+  if (result === "correct")      playCorrect();
+  else if (result === "wrong")   playWrong();
+  else                           playReveal();
 
-  if (question.type === QUESTION_TYPES.CAPITAL_OF) {
+  // Decorate MC buttons (both CAPITAL_OF and FEATURE_MC use the choices grid)
+  if (question.type === QUESTION_TYPES.CAPITAL_OF || question.type === QUESTION_TYPES.FEATURE_MC) {
     const correctIdx = question.correctChoiceIndex;
     [...els.choices.children].forEach((btn, idx) => {
       if (idx === correctIdx) btn.classList.add("correct");
@@ -307,15 +312,47 @@ function onResolved(payload) {
     });
   }
 
-  // Auto-focus the camera on the target country so the player sees its location.
-  globe.focusOnCountry(targetIso);
+  if (question.type === QUESTION_TYPES.FEATURE_MC) {
+    // No globe interaction for feature questions — show the feature card.
+    setTimeout(() => showFeatureInfoCard(featureId, result), 500);
+    return;
+  }
 
+  // Country path: flash, plant flag if correct, focus camera, show country card.
+  if (result === "correct") {
+    globe.flashCountry(targetIso, COLORS.correct, 700);
+    allDiscovered.add(targetIso);
+    persistDiscovered(allDiscovered);
+    setTimeout(() => playFlagPlant(), 200);
+    globe.plantFlag(targetIso);
+  } else if (result === "wrong") {
+    if (guessIso && guessIso !== targetIso) globe.flashCountry(guessIso, COLORS.wrong, 700);
+    globe.flashCountry(targetIso, COLORS.reveal, 1000);
+  } else {
+    globe.flashCountry(targetIso, COLORS.reveal, 1000);
+  }
+  globe.focusOnCountry(targetIso);
   setTimeout(() => showInfoCard(targetIso, result), 500);
 }
 
 function showInfoCard(iso, result) {
   const meta = COUNTRIES[iso];
   if (!meta) return;
+
+  // If the previous card was a feature, the flag <img> was swapped for an
+  // emoji <div>; put the <img> back so we can set its src below.
+  restoreCountryFlagElement();
+  // Re-show fact rows that may have been hidden by feature cards.
+  for (const el of [els.infoCapital, els.infoPop, els.infoArea, els.infoLangs]) {
+    if (el && el.parentElement) el.parentElement.style.display = "";
+  }
+  // Reset fact labels to the country defaults.
+  const factsRoot = els.infoCapital?.parentElement?.parentElement;
+  if (factsRoot) {
+    const labels = factsRoot.querySelectorAll(".fact-label");
+    const keys = ["card_capital", "card_population", "card_area", "card_languages"];
+    labels.forEach((el, i) => { if (keys[i]) el.textContent = t(keys[i]); });
+  }
 
   let key, kind;
   if (result === "correct")   { key = "feedback_correct"; kind = "good"; }
@@ -343,6 +380,110 @@ function showInfoCard(iso, result) {
   if (isMusicEnabled()) playAnthemFor(iso);
 
   els.infoOv.hidden = false;
+}
+
+function showFeatureInfoCard(featureId, result) {
+  const f = FEATURES[featureId];
+  if (!f) return;
+
+  let key, kind;
+  if (result === "correct")    { key = "feedback_correct"; kind = "good"; }
+  else if (result === "wrong") { key = "feedback_wrong";   kind = "bad";  }
+  else                         { key = "revealed";         kind = "neutral"; }
+  els.infoFeedback.textContent = t(key);
+  els.infoFeedback.className = "info-feedback " + kind;
+
+  // Use an emoji + transparent flag slot so the existing card layout still works
+  els.infoFlag.removeAttribute("src");
+  els.infoFlag.alt = "";
+  els.infoFlag.style.background = "rgba(242,198,110,0.10)";
+  els.infoFlag.style.display = "grid";
+  els.infoFlag.style.placeItems = "center";
+  els.infoFlag.style.fontSize = "32px";
+  els.infoFlag.style.height = "44px";
+  // Replace the <img> visual with a sibling span we render in its place
+  els.infoFlag.outerHTML = `<div class="info-flag info-flag-emoji" id="info-flag">${kindEmoji(f.kind)}</div>`;
+  // The above replaces the node; refresh our cached reference
+  els.infoFlag = document.getElementById("info-flag");
+
+  const loc = getLocale();
+  els.infoCountry.textContent = loc === "ru" ? f.name_ru : f.name_en;
+  const regionLabel = f.continent ? regionName(f.continent) : "";
+  els.infoRegion.textContent = `${t("cat_" + f.kind)}${regionLabel ? "  ·  " + regionLabel : ""}`;
+
+  // Repurpose the country facts into kind-appropriate facts
+  setFactRow(els.infoCapital, els.infoCapital.previousElementSibling, primaryMetric(f), primaryMetricValue(f));
+  setFactRow(els.infoPop,     els.infoPop.previousElementSibling,     secondaryMetric(f), secondaryMetricValue(f));
+  setFactRow(els.infoArea,    els.infoArea.previousElementSibling,    "",                  "");   // unused
+  setFactRow(els.infoLangs,   els.infoLangs.previousElementSibling,   "",                  "");   // unused
+
+  els.infoHistory.textContent = loc === "ru" ? f.fact_ru : f.fact_en;
+
+  if (els.infoAnthem) els.infoAnthem.hidden = true;
+  stopAnthem();   // no anthems for features
+
+  els.infoOv.hidden = false;
+}
+
+// Reset the country card image element (called when transitioning back to a
+// country card after a feature card swapped the <img> for an emoji <div>).
+function restoreCountryFlagElement() {
+  if (els.infoFlag && els.infoFlag.classList.contains("info-flag-emoji")) {
+    const replacement = document.createElement("img");
+    replacement.className = "info-flag";
+    replacement.id = "info-flag";
+    replacement.alt = "";
+    els.infoFlag.replaceWith(replacement);
+    els.infoFlag = replacement;
+  }
+}
+
+function setFactRow(valueEl, labelEl, labelKey, valueText) {
+  if (!valueEl) return;
+  const fact = valueEl.parentElement;
+  if (!labelKey) {
+    fact.style.display = "none";
+    return;
+  }
+  fact.style.display = "";
+  if (labelEl && labelEl.classList.contains("fact-label")) labelEl.textContent = t(labelKey);
+  valueEl.textContent = valueText;
+}
+
+function primaryMetric(f) {
+  switch (f.kind) {
+    case "ocean":    return "metric_area";
+    case "river":    return "metric_length";
+    case "lake":     return "metric_area";
+    case "mountain": return "metric_height";
+    case "desert":   return "metric_area";
+    default: return "";
+  }
+}
+function secondaryMetric(f) {
+  switch (f.kind) {
+    case "ocean":    return "metric_depth";
+    case "lake":     return f.max_depth_m != null ? "metric_depth" : "";
+    default: return "";
+  }
+}
+function primaryMetricValue(f) {
+  const loc = getLocale();
+  switch (f.kind) {
+    case "ocean":    return `${formatNumber(f.area_km2)} ${t("unit_km2")}`;
+    case "river":    return `${formatNumber(f.length_km)} ${t("unit_km")}`;
+    case "lake":     return `${formatNumber(f.area_km2)} ${t("unit_km2")}`;
+    case "mountain": return `${formatNumber(f.height_m)} ${t("unit_m")}`;
+    case "desert":   return `${formatNumber(f.area_km2)} ${t("unit_km2")}`;
+    default: return "";
+  }
+}
+function secondaryMetricValue(f) {
+  switch (f.kind) {
+    case "ocean":    return `${formatNumber(f.avg_depth_m)} ${t("unit_m")}`;
+    case "lake":     return f.max_depth_m != null ? `${formatNumber(f.max_depth_m)} ${t("unit_m")}` : "";
+    default: return "";
+  }
 }
 
 // ---------- Input ----------
