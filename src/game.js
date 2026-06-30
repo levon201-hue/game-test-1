@@ -1,7 +1,9 @@
 import { mulberry32 } from "./rng.js";
 import { QUESTION_TYPES, buildCandidatePool, makeQuestion } from "./quiz.js";
 
-const DEFAULT_SESSION_LENGTH = 30;
+// Endless mode: the queue auto-refills in chunks so the game never ends on its
+// own. Players stop when they want via the Settings → Back-to-menu / End button.
+const BATCH_SIZE = 30;
 
 // Game state for the educational quiz. No timer — players progress at their pace.
 // Each question has three resolved states: correct, wrong, skipped.
@@ -32,35 +34,37 @@ export class Game {
     this.discovered = new Set(); // ISOs the player has answered correctly
     this.running = false;
     this.awaitingContinue = false;
-    this.totalQuestions = DEFAULT_SESSION_LENGTH;
     this._rand = null;
+    this._availableIsos = null;
   }
 
-  start({ availableIsos, totalQuestions = DEFAULT_SESSION_LENGTH } = {}) {
+  start({ availableIsos } = {}) {
     this._reset();
-    this.totalQuestions = totalQuestions;
     const seed = (Math.random() * 1e9) | 0;
     this._rand = mulberry32(seed);
-    this.queue = buildCandidatePool(this._rand, availableIsos, totalQuestions);
-    this._distractorPool = availableIsos ? [...availableIsos] : [...this.queue];
+    this._availableIsos = availableIsos ? [...availableIsos] : null;
+    this._distractorPool = this._availableIsos ? [...this._availableIsos] : [];
+    this._refillQueue();
     this.running = true;
-    this._emit("start", { totalQuestions });
+    this._emit("start", {});
     this._nextQuestion();
   }
 
+  _refillQueue() {
+    const more = buildCandidatePool(this._rand, this._availableIsos, BATCH_SIZE);
+    for (const iso of more) this.queue.push(iso);
+  }
+
   _nextQuestion() {
-    if (this.queueIndex >= this.queue.length) {
-      this._end();
-      return;
-    }
+    // Endless: refill when we're about to run out
+    if (this.queueIndex >= this.queue.length) this._refillQueue();
     const targetIso = this.queue[this.queueIndex];
     this.currentQ = makeQuestion(targetIso, this._rand, this._distractorPool);
     this.queueIndex++;
     this.awaitingContinue = false;
     this._emit("question", {
       question: this.currentQ,
-      index: this.queueIndex,        // 1-based, freshly incremented
-      total: this.queue.length,
+      index: this.queueIndex,   // count of questions answered or shown so far
     });
   }
 
@@ -137,11 +141,16 @@ export class Game {
       wrong: this.wrongCount,
       skipped: this.skipCount,
       asked: this.queueIndex,
-      total: this.queue.length,
       discovered: [...this.discovered],
       early: !!meta.early,
     });
   }
+}
+
+// Wipe persistent progress (flags planted on the globe across sessions).
+export function resetAllDiscovered() {
+  try { localStorage.removeItem("geoAtlas.discoveredAll"); } catch {}
+  try { localStorage.removeItem("geoAtlas.best.score"); } catch {}
 }
 
 function scoreFor(type) {

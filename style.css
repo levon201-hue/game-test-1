@@ -112,6 +112,72 @@ html, body {
   margin: -8px 0 18px;
 }
 
+/* ============ Settings panel (in-game) ============ */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(242,198,110,0.05);
+  border: 1px solid var(--chip-border);
+  border-radius: 10px;
+  margin: 8px 0;
+}
+.settings-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.settings-icon {
+  width: 36px; height: 36px;
+  font-size: 16px;
+}
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.settings-actions button {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 18px;
+  border-radius: 10px;
+  background: rgba(125, 211, 252, 0.05);
+  border: 1px solid var(--chip-border);
+  color: var(--text);
+  cursor: pointer;
+}
+.settings-actions button:hover {
+  background: rgba(242,198,110,0.15);
+  border-color: rgba(242,198,110,0.4);
+}
+.settings-actions button.primary {
+  background: var(--accent);
+  color: #18120a;
+  border-color: var(--accent);
+}
+.settings-actions button.primary:hover { background: #f6d68b; }
+
+.settings-danger {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  text-align: center;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--bad);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 8px;
+  letter-spacing: 0.04em;
+}
+.link-btn:hover { color: #ffb4b4; }
+
 .score-chip, .progress-chip {
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);

@@ -106,17 +106,48 @@
     <div class="hud-top-right">
       <div class="progress-chip">
         <div class="chip-label" data-i18n="asked_label">Asked</div>
-        <div class="chip-value"><span id="progress-index">0</span> / <span id="progress-total">0</span></div>
+        <div class="chip-value"><span id="progress-index">0</span></div>
       </div>
-      <div class="audio-toggles">
-        <button class="icon-btn" id="btn-sfx" title="Sound on" aria-label="Toggle sound effects">🔊</button>
-        <button class="icon-btn" id="btn-music" title="Music on" aria-label="Toggle music">♪</button>
-      </div>
+      <button class="icon-btn" id="btn-settings" title="Settings" aria-label="Open settings">⚙</button>
       <button class="ghost-btn small" id="btn-skip" data-i18n="skip">Skip</button>
-      <button class="ghost-btn small" id="btn-end" data-i18n="end_round">End session</button>
     </div>
 
     <div class="hud-bottom" id="hud-bottom" data-i18n="hint_drag">drag to rotate · scroll to zoom</div>
+  </div>
+
+  <!-- ============ Settings panel (in-game) ============ -->
+  <div id="settings-overlay" class="overlay" hidden>
+    <div class="modal">
+      <h1 data-i18n="settings">Settings</h1>
+
+      <div class="settings-row">
+        <div class="settings-label" data-i18n="language">Language</div>
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="en">EN</button>
+          <button class="lang-btn" data-lang="ru">RU</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label" data-i18n="sfx_label">Sound effects</div>
+        <button class="icon-btn settings-icon" id="btn-sfx" title="Sound on" aria-label="Toggle sound effects">🔊</button>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label" data-i18n="music_label">Country music</div>
+        <button class="icon-btn settings-icon" id="btn-music" title="Music on" aria-label="Toggle music">♪</button>
+      </div>
+
+      <div class="settings-actions">
+        <button class="primary" id="btn-resume" data-i18n="resume">Resume</button>
+        <button id="btn-restart" data-i18n="restart">Restart session</button>
+        <button id="btn-back-to-menu" data-i18n="back_to_menu">Back to menu</button>
+      </div>
+
+      <div class="settings-danger">
+        <button class="link-btn" id="btn-reset-progress" data-i18n="reset_progress">Reset all progress</button>
+      </div>
+    </div>
   </div>
 
   <!-- ============ Country info card (after each answer) ============ -->

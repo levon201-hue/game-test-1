@@ -7,6 +7,7 @@ import {
   saveBestIfHigher,
   loadAllDiscovered,
   persistDiscovered,
+  resetAllDiscovered,
 } from "./game.js";
 import {
   t,
@@ -42,12 +43,16 @@ const els = {
   choices:      document.getElementById("choices"),
   scoreValue:   document.getElementById("score-value"),
   progIndex:    document.getElementById("progress-index"),
-  progTotal:    document.getElementById("progress-total"),
   btnSkip:      document.getElementById("btn-skip"),
-  btnEnd:       document.getElementById("btn-end"),
+  btnSettings:  document.getElementById("btn-settings"),
 
+  settingsOv:   document.getElementById("settings-overlay"),
   btnSfx:       document.getElementById("btn-sfx"),
   btnMusic:     document.getElementById("btn-music"),
+  btnResume:    document.getElementById("btn-resume"),
+  btnRestart:   document.getElementById("btn-restart"),
+  btnBackToMenu:document.getElementById("btn-back-to-menu"),
+  btnResetProg: document.getElementById("btn-reset-progress"),
 
   infoOv:       document.getElementById("info-overlay"),
   infoFeedback: document.getElementById("info-feedback"),
@@ -192,7 +197,16 @@ function showStartOverlay() {
   els.endOv.hidden = true;
   els.hud.hidden = true;
   els.infoOv.hidden = true;
+  els.settingsOv.hidden = true;
   stopAnthem();
+}
+
+function openSettings() {
+  refreshAudioToggleUi();
+  els.settingsOv.hidden = false;
+}
+function closeSettings() {
+  els.settingsOv.hidden = true;
 }
 
 function startRound() {
@@ -214,15 +228,13 @@ function startRound() {
 // ---------- Game events ----------
 
 function wireGameEvents() {
-  game.on("start", ({ totalQuestions }) => {
+  game.on("start", () => {
     els.progIndex.textContent = "1";
-    els.progTotal.textContent = String(totalQuestions);
   });
 
-  game.on("question", ({ question, index, total }) => {
+  game.on("question", ({ question, index }) => {
     currentQuestion = question;
     els.progIndex.textContent = String(index);
-    els.progTotal.textContent = String(total);
     renderQuestion(question);
   });
 
@@ -354,12 +366,39 @@ function wireUiButtons() {
   els.btnPlay.addEventListener("click", () => { playClick(); startRound(); });
   els.btnAgain.addEventListener("click", () => { playClick(); startRound(); });
   els.btnSkip.addEventListener("click", () => { playClick(); game.skip(); });
-  els.btnEnd.addEventListener("click", () => { playClick(); game.endNow(); });
   els.btnContinue.addEventListener("click", () => {
     playClick();
     stopAnthem();
     els.infoOv.hidden = true;
     game.continueAfterReveal();
+  });
+
+  // ---- In-game settings menu ----
+  els.btnSettings.addEventListener("click", () => { playClick(); openSettings(); });
+  els.btnResume.addEventListener("click", () => { playClick(); closeSettings(); });
+  els.btnRestart.addEventListener("click", () => {
+    playClick();
+    closeSettings();
+    stopAnthem();
+    startRound();
+  });
+  els.btnBackToMenu.addEventListener("click", () => {
+    playClick();
+    closeSettings();
+    if (game.running) game.endNow();
+    stopAnthem();
+    showStartOverlay();
+  });
+  els.btnResetProg.addEventListener("click", () => {
+    if (!window.confirm(t("reset_confirm"))) return;
+    playClick();
+    resetAllDiscovered();
+    allDiscovered = new Set();
+    globe.clearFlags();
+    closeSettings();
+    if (game.running) game.endNow();
+    stopAnthem();
+    showStartOverlay();
   });
 }
 
