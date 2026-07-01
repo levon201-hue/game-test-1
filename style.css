@@ -279,21 +279,27 @@ html, body {
 }
 .icon-btn {
   font: inherit;
-  width: 30px; height: 30px;
+  width: 40px; height: 40px;
   padding: 0;
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow);
   display: inline-grid; place-items: center;
-  font-size: 14px;
+  font-size: 18px;
   line-height: 1;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.06s;
+  /* No 300ms tap delay on iOS, no double-tap zoom, no callout menu on long-press */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(242, 198, 110, 0.25);
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .icon-btn:hover { border-color: rgba(242,198,110,0.5); }
+.icon-btn:active { transform: scale(0.92); background: rgba(242,198,110,0.18); }
 .icon-btn.off { color: var(--text-dim); opacity: 0.55; }
 .icon-btn.off::after {
   content: "";
@@ -488,6 +494,9 @@ html, body {
 }
 button {
   font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(242, 198, 110, 0.25);
+  -webkit-touch-callout: none;
 }
 button.primary {
   font-size: 15px;

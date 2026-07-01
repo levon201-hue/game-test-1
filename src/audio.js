@@ -70,32 +70,40 @@ function tone({ freq = 440, type = "sine", duration = 0.15, gain = 0.3, attack =
   osc.stop(tEnd + 0.02);
 }
 
+// Wrap every play function in try/catch so a Web Audio quirk on any browser
+// (RangeError on odd envelope times, permission errors, etc.) can never break
+// the surrounding click handler. Audio is a nice-to-have; the UI must never
+// depend on it succeeding.
+function safeTone(opts) {
+  try { tone(opts); } catch (e) { console.warn("tone() failed:", e?.message ?? e); }
+}
+
 // A short bright pop for button clicks
 export function playClick() {
-  tone({ freq: 720, freqEnd: 540, type: "triangle", duration: 0.07, gain: 0.18 });
+  safeTone({ freq: 720, freqEnd: 540, type: "triangle", duration: 0.09, gain: 0.18 });
 }
 
 // Pleasant ascending chord — answer correct
 export function playCorrect() {
-  tone({ freq: 660, type: "triangle", duration: 0.18, gain: 0.22 });
-  setTimeout(() => tone({ freq: 880, type: "triangle", duration: 0.20, gain: 0.22 }), 80);
-  setTimeout(() => tone({ freq: 1320, type: "sine",   duration: 0.30, gain: 0.18 }), 160);
+  safeTone({ freq: 660, type: "triangle", duration: 0.18, gain: 0.22 });
+  setTimeout(() => safeTone({ freq: 880, type: "triangle", duration: 0.20, gain: 0.22 }), 80);
+  setTimeout(() => safeTone({ freq: 1320, type: "sine",   duration: 0.30, gain: 0.18 }), 160);
 }
 
 // Descending dissonant pair — answer wrong
 export function playWrong() {
-  tone({ freq: 300, type: "sawtooth", duration: 0.20, gain: 0.16 });
-  setTimeout(() => tone({ freq: 210, type: "sawtooth", duration: 0.28, gain: 0.16 }), 100);
+  safeTone({ freq: 300, type: "sawtooth", duration: 0.20, gain: 0.16 });
+  setTimeout(() => safeTone({ freq: 210, type: "sawtooth", duration: 0.28, gain: 0.16 }), 100);
 }
 
 // Soft swoosh as a flag plants
 export function playFlagPlant() {
-  tone({ freq: 200, freqEnd: 600, type: "sine", duration: 0.22, gain: 0.18 });
-  setTimeout(() => tone({ freq: 900, type: "sine", duration: 0.12, gain: 0.14 }), 120);
+  safeTone({ freq: 200, freqEnd: 600, type: "sine", duration: 0.22, gain: 0.18 });
+  setTimeout(() => safeTone({ freq: 900, type: "sine", duration: 0.12, gain: 0.14 }), 120);
 }
 
 // Gentle blip — skipping a question or revealing
 export function playReveal() {
-  tone({ freq: 520, type: "triangle", duration: 0.16, gain: 0.18 });
-  setTimeout(() => tone({ freq: 392, type: "triangle", duration: 0.18, gain: 0.16 }), 110);
+  safeTone({ freq: 520, type: "triangle", duration: 0.16, gain: 0.18 });
+  setTimeout(() => safeTone({ freq: 392, type: "triangle", duration: 0.18, gain: 0.16 }), 110);
 }
